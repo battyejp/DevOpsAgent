@@ -49,7 +49,7 @@ export VSO_AGENT_IGNORE=AZP_TOKEN,AZP_TOKEN_FILE
 
 print_header "1. Determining matching Azure Pipelines agent..."
 
-AZP_AGENT_RESPONSE=$(curl -LsS -k \
+AZP_AGENT_RESPONSE=$(curl -LsS \
   -u user:$(cat "$AZP_TOKEN_FILE") \
   -H 'Accept:application/json;api-version=3.0-preview' \
   "$AZP_URL/_apis/distributedtask/packages/agent?platform=linux-x64")
@@ -66,12 +66,9 @@ fi
 
 print_header "2. Downloading and installing Azure Pipelines agent..."
 
-curl -LsS $AZP_AGENTPACKAGE_URL -k | tar -xz & wait $!
+curl -LsS $AZP_AGENTPACKAGE_URL | tar -xz & wait $!
 
 source ./env.sh
-
-trap 'cleanup; exit 130' INT
-trap 'cleanup; exit 143' TERM
 
 print_header "3. Configuring Azure Pipelines agent..."
 
@@ -87,6 +84,9 @@ print_header "3. Configuring Azure Pipelines agent..."
 
 print_header "4. Running Azure Pipelines agent..."
 
-# `exec` the node runtime so it's aware of TERM and INT signals
-# AgentService.js understands how to handle agent self-update and restart
-exec ./externals/node/bin/node ./bin/AgentService.js interactive
+trap 'cleanup; exit 130' INT
+trap 'cleanup; exit 143' TERM
+
+# To be aware of TERM and INT signals call run.sh
+# Running it with the --once flag at the end will shut down the agent after the build is executed
+./run.sh & wait $!
